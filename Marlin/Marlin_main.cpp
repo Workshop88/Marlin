@@ -3230,6 +3230,10 @@ inline void gcode_G0_G1(
   if (IsRunning()) {
     gcode_get_destination(); // For X Y Z E F
 
+    #if ENABLED(DELTA) || IS_SCARA
+      if (!position_is_reachable(destination)) return BUZZ(100, 880);
+    #endif
+
     #if ENABLED(FWRETRACT)
 
       if (autoretract_enabled && !(parser.seen('X') || parser.seen('Y') || parser.seen('Z')) && parser.seen('E')) {
