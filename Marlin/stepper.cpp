@@ -348,11 +348,19 @@ void Stepper::set_directions() {
  *  4000   500  Hz - init rate
  */
 ISR(TIMER1_COMPA_vect) {
+  // #ifdef OSCILLOSCOPE_PIN_A
+  //   WRITE(OSCILLOSCOPE_PIN_A, HIGH);
+  // #endif
+
   #if ENABLED(ADVANCE) || ENABLED(LIN_ADVANCE)
     Stepper::advance_isr_scheduler();
   #else
     Stepper::isr();
   #endif
+
+  // #ifdef OSCILLOSCOPE_PIN_A
+  //   WRITE(OSCILLOSCOPE_PIN_A, LOW);
+  // #endif
 }
 
 #define _ENABLE_ISRs() do { cli(); if (thermalManager.in_temp_isr) CBI(TIMSK0, OCIE0B); else SBI(TIMSK0, OCIE0B); ENABLE_STEPPER_DRIVER_INTERRUPT(); } while(0)
@@ -611,6 +619,12 @@ void Stepper::isr() {
     #if HAS_X_STEP
       PULSE_START(X);
     #endif
+
+    // Timing between X pulses
+    #ifdef OSCILLOSCOPE_PIN_A
+      WRITE(OSCILLOSCOPE_PIN_A, 255);
+    #endif
+
     #if HAS_Y_STEP
       PULSE_START(Y);
     #endif
@@ -646,6 +660,11 @@ void Stepper::isr() {
     #if HAS_X_STEP
       PULSE_STOP(X);
     #endif
+
+    #ifdef OSCILLOSCOPE_PIN_A
+      WRITE(OSCILLOSCOPE_PIN_A, LOW);
+    #endif
+
     #if HAS_Y_STEP
       PULSE_STOP(Y);
     #endif

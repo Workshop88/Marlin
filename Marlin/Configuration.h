@@ -1592,4 +1592,7 @@
 // Allow G2/G3 to operate in XY, ZX, or YZ planes
 #define CNC_WORKSPACE_PLANES
 
+// Debug with an oscilloscope
+//#define OSCILLOSCOPE_PIN_A 45
+
 #endif // CONFIGURATION_H
