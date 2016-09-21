@@ -215,6 +215,15 @@ uint8_t Temperature::soft_pwm_amount[HOTENDS],
 #if HAS_PID_HEATING
 
   void Temperature::PID_autotune(float temp, int hotend, int ncycles, bool set_result/*=false*/) {
+
+    #if ENABLED(MAKERARM_SCARA)
+      if (tool_type != TOOL_TYPE_EXTRUDER) {
+        SERIAL_ERROR_START();
+        SERIAL_ERRORLNPGM(MSG_ERR_WRONG_TOOL);
+        return;
+      }
+    #endif
+
     float input = 0.0;
     int cycles = 0;
     bool heating = true;
@@ -710,6 +719,17 @@ float Temperature::get_pid_output(const int8_t e) {
 //void Temperature::manage_heater()  __attribute__((__optimize__("O2")));
 void Temperature::manage_heater() {
 
+  // Laser may be swapped for the extruder
+  // so check for the laser tool
+  #if ENABLED(MAKERARM_SCARA)
+    if (tool_type != TOOL_TYPE_EXTRUDER) {
+      #if ENABLED(USE_WATCHDOG)
+        watchdog_reset();
+      #endif
+      return;
+    }
+  #endif
+
   if (!temp_meas_ready) return;
 
   updateTemperaturesFromRawValues(); // also resets the watchdog
@@ -929,6 +949,15 @@ float Temperature::analog2tempBed(const int raw) {
  * as it would block the stepper routine.
  */
 void Temperature::updateTemperaturesFromRawValues() {
+
+  #if ENABLED(USE_WATCHDOG)
+    watchdog_reset();
+  #endif
+
+  #if ENABLED(MAKERARM_SCARA)
+    if (tool_type != TOOL_TYPE_EXTRUDER) return;
+  #endif
+
   #if ENABLED(HEATER_0_USES_MAX6675)
     current_temperature_raw[0] = read_max6675();
   #endif
@@ -940,11 +969,6 @@ void Temperature::updateTemperaturesFromRawValues() {
   #endif
   #if ENABLED(FILAMENT_WIDTH_SENSOR)
     filament_width_meas = analog2widthFil();
-  #endif
-
-  #if ENABLED(USE_WATCHDOG)
-    // Reset the watchdog after we know we have a temperature measurement.
-    watchdog_reset();
   #endif
 
   CRITICAL_SECTION_START;
@@ -1017,6 +1041,10 @@ void Temperature::init() {
   #endif
   #if HAS_HEATER_BED
     SET_OUTPUT(HEATER_BED_PIN);
+  #endif
+
+  #if ENABLED(LASER) && !LASER_IS_HEATER
+    SET_OUTPUT(LASER_POWER_PIN);
   #endif
 
   #if HAS_FAN0
@@ -1382,6 +1410,13 @@ void Temperature::disable_all_heaters() {
       WRITE_HEATER_BED(LOW);
     #endif
   #endif
+
+  #if ENABLED(LASER)
+    setLaserPower(0);
+    #if !LASER_IS_HEATER
+      WRITE(LASER_POWER_PIN, LOW)
+    #endif
+  #endif
 }
 
 #if ENABLED(PROBING_HEATERS_OFF)
@@ -1673,29 +1708,34 @@ void Temperature::isr() {
      */
     if (pwm_count_tmp >= 127) {
       pwm_count_tmp -= 127;
-      soft_pwm_count_0 = (soft_pwm_count_0 & pwm_mask) + soft_pwm_amount[0];
-      WRITE_HEATER_0(soft_pwm_count_0 > pwm_mask ? HIGH : LOW);
-      #if HOTENDS > 1
-        soft_pwm_count_1 = (soft_pwm_count_1 & pwm_mask) + soft_pwm_amount[1];
-        WRITE_HEATER_1(soft_pwm_count_1 > pwm_mask ? HIGH : LOW);
-        #if HOTENDS > 2
-          soft_pwm_count_2 = (soft_pwm_count_2 & pwm_mask) + soft_pwm_amount[2];
-          WRITE_HEATER_2(soft_pwm_count_2 > pwm_mask ? HIGH : LOW);
-          #if HOTENDS > 3
-            soft_pwm_count_3 = (soft_pwm_count_3 & pwm_mask) + soft_pwm_amount[3];
-            WRITE_HEATER_3(soft_pwm_count_3 > pwm_mask ? HIGH : LOW);
-            #if HOTENDS > 4
-              soft_pwm_count_4 = (soft_pwm_count_4 & pwm_mask) + soft_pwm_amount[4];
-              WRITE_HEATER_4(soft_pwm_count_4 > pwm_mask ? HIGH : LOW);
-            #endif // HOTENDS > 4
-          #endif // HOTENDS > 3
-        #endif // HOTENDS > 2
-      #endif // HOTENDS > 1
-
-      #if HAS_HEATER_BED
-        soft_pwm_count_BED = (soft_pwm_count_BED & pwm_mask) + soft_pwm_amount_bed;
-        WRITE_HEATER_BED(soft_pwm_count_BED > pwm_mask ? HIGH : LOW);
+      #if ENABLED(MAKERARM_SCARA)
+        if (tool_type == TOOL_TYPE_EXTRUDER)
       #endif
+      {
+        soft_pwm_count_0 = (soft_pwm_count_0 & pwm_mask) + soft_pwm_amount[0];
+        WRITE_HEATER_0(soft_pwm_count_0 > pwm_mask ? HIGH : LOW);
+        #if HOTENDS > 1
+          soft_pwm_count_1 = (soft_pwm_count_1 & pwm_mask) + soft_pwm_amount[1];
+          WRITE_HEATER_1(soft_pwm_count_1 > pwm_mask ? HIGH : LOW);
+          #if HOTENDS > 2
+            soft_pwm_count_2 = (soft_pwm_count_2 & pwm_mask) + soft_pwm_amount[2];
+            WRITE_HEATER_2(soft_pwm_count_2 > pwm_mask ? HIGH : LOW);
+            #if HOTENDS > 3
+              soft_pwm_count_3 = (soft_pwm_count_3 & pwm_mask) + soft_pwm_amount[3];
+              WRITE_HEATER_3(soft_pwm_count_3 > pwm_mask ? HIGH : LOW);
+              #if HOTENDS > 4
+                soft_pwm_count_4 = (soft_pwm_count_4 & pwm_mask) + soft_pwm_amount[4];
+                WRITE_HEATER_4(soft_pwm_count_4 > pwm_mask ? HIGH : LOW);
+              #endif // HOTENDS > 4
+            #endif // HOTENDS > 3
+          #endif // HOTENDS > 2
+        #endif // HOTENDS > 1
+
+        #if HAS_HEATER_BED
+          soft_pwm_count_BED = (soft_pwm_count_BED & pwm_mask) + soft_pwm_amount_bed;
+          WRITE_HEATER_BED(soft_pwm_count_BED > pwm_mask ? HIGH : LOW);
+        #endif
+      }
 
       #if ENABLED(FAN_SOFT_PWM)
         #if HAS_FAN0
@@ -1713,23 +1753,29 @@ void Temperature::isr() {
       #endif
     }
     else {
-      if (soft_pwm_count_0 <= pwm_count_tmp) WRITE_HEATER_0(0);
-      #if HOTENDS > 1
-        if (soft_pwm_count_1 <= pwm_count_tmp) WRITE_HEATER_1(0);
-        #if HOTENDS > 2
-          if (soft_pwm_count_2 <= pwm_count_tmp) WRITE_HEATER_2(0);
-          #if HOTENDS > 3
-            if (soft_pwm_count_3 <= pwm_count_tmp) WRITE_HEATER_3(0);
-            #if HOTENDS > 4
-              if (soft_pwm_count_4 <= pwm_count_tmp) WRITE_HEATER_4(0);
-            #endif // HOTENDS > 4
-          #endif // HOTENDS > 3
-        #endif // HOTENDS > 2
-      #endif // HOTENDS > 1
 
-      #if HAS_HEATER_BED
-        if (soft_pwm_count_BED <= pwm_count_tmp) WRITE_HEATER_BED(0);
+      #if ENABLED(MAKERARM_SCARA)
+        if (tool_type == TOOL_TYPE_EXTRUDER)
       #endif
+      {
+        if (soft_pwm_count_0 <= pwm_count_tmp) WRITE_HEATER_0(0);
+        #if HOTENDS > 1
+          if (soft_pwm_count_1 <= pwm_count_tmp) WRITE_HEATER_1(0);
+          #if HOTENDS > 2
+            if (soft_pwm_count_2 <= pwm_count_tmp) WRITE_HEATER_2(0);
+            #if HOTENDS > 3
+              if (soft_pwm_count_3 <= pwm_count_tmp) WRITE_HEATER_3(0);
+              #if HOTENDS > 4
+                if (soft_pwm_count_4 <= pwm_count_tmp) WRITE_HEATER_4(0);
+              #endif // HOTENDS > 4
+            #endif // HOTENDS > 3
+          #endif // HOTENDS > 2
+        #endif // HOTENDS > 1
+
+        #if HAS_HEATER_BED
+          if (soft_pwm_count_BED <= pwm_count_tmp) WRITE_HEATER_BED(0);
+        #endif
+      }
 
       #if ENABLED(FAN_SOFT_PWM)
         #if HAS_FAN0

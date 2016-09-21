@@ -353,6 +353,7 @@ extern float soft_endstop_min[XYZ], soft_endstop_max[XYZ];
 
 #if ENABLED(MAKERARM_SCARA)
   extern ToolType tool_type;
+  uint16_t set_pwm_frequency_hz(const float &hz, const float dca=0.0, const float dcb=0.0, const float dcc=0.0);
 #endif
 
 #if ENABLED(HOST_KEEPALIVE_FEATURE)
