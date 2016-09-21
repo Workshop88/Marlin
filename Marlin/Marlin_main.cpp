@@ -12844,7 +12844,16 @@ void setup() {
   // This also updates variables in the planner, elsewhere
   (void)settings.load();
 
-  #if HAS_M206_COMMAND
+  // For now set the current position to the home
+  // Later it will require G28 to home to endstops
+  // and will be recalibrated by the rotary encoders
+  #if ENABLED(MAKERARM_SCARA)
+    current_position[X_AXIS] = LOGICAL_X_POSITION(X_HOME_POS);
+    current_position[Y_AXIS] = LOGICAL_Y_POSITION(Y_HOME_POS);
+    current_position[Z_AXIS] = LOGICAL_Z_POSITION(Z_HOME_POS);
+    axis_known_position[X_AXIS] = axis_homed[X_AXIS] =
+    axis_known_position[Y_AXIS] = axis_homed[Y_AXIS] = true;
+  #elif HAS_M206_COMMAND
     // Initialize current position based on home_offset
     COPY(current_position, home_offset);
   #else

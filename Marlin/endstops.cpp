@@ -38,7 +38,7 @@ Endstops endstops;
 
 // public:
 
-bool  Endstops::enabled = true,
+bool  Endstops::enabled = false,
       Endstops::enabled_globally =
         #if ENABLED(ENDSTOPS_ALWAYS_ON_DEFAULT)
           (true)
