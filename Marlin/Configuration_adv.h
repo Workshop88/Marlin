@@ -738,7 +738,7 @@
 // enter the serial receive buffer, so they cannot be blocked.
 // Currently handles M108, M112, M410
 // Does not work on boards using AT90USB (USBCON) processors!
-//#define EMERGENCY_PARSER
+#define EMERGENCY_PARSER
 
 // Bad Serial-connections can miss a received command by sending an 'ok'
 // Therefore some clients abort after 30 seconds in a timeout.
@@ -1195,7 +1195,22 @@
 /**
  * M43 - display pin status, watch pins for changes, watch endstops & toggle LED, Z servo probe test, toggle pins
  */
-//#define PINS_DEBUGGING
+#define PINS_DEBUGGING
+
+/**
+ * Resistance-based tool detection
+ *
+ * Install a contact switch that connects to an analog pin
+ * and in your tool-mount provide a resistor. The tool is
+ * automatically sensed based on the resistance.
+ */
+//#define TOOLCHANGE_SENSOR
+
+// Provide the upper-range of resistance for each tool.
+// Make sure your resistors read somewhere in-between
+// each pair of values.
+#define TOOL_RESISTANCE_RANGES { 450, 600, 950 } // ADC Ranges from 0 to 1024 (10-bit)
+#define TOOL_SENSOR_PIN A3
 
 /**
  * Auto-report temperatures with M155 S<seconds>

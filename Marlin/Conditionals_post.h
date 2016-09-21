@@ -506,10 +506,10 @@
   #define HAS_SOLENOID_4    (PIN_EXISTS(SOL4))
 
   // Endstops and bed probe
-  #define HAS_X_MIN (PIN_EXISTS(X_MIN) && !IS_Z2_OR_PROBE(X,MIN))
-  #define HAS_X_MAX (PIN_EXISTS(X_MAX) && !IS_Z2_OR_PROBE(X,MAX))
-  #define HAS_Y_MIN (PIN_EXISTS(Y_MIN) && !IS_Z2_OR_PROBE(Y,MIN))
-  #define HAS_Y_MAX (PIN_EXISTS(Y_MAX) && !IS_Z2_OR_PROBE(Y,MAX))
+  #define HAS_X_MIN 0 && (PIN_EXISTS(X_MIN) && !IS_Z2_OR_PROBE(X,MIN))
+  #define HAS_X_MAX 0 && (PIN_EXISTS(X_MAX) && !IS_Z2_OR_PROBE(X,MAX))
+  #define HAS_Y_MIN 0 && (PIN_EXISTS(Y_MIN) && !IS_Z2_OR_PROBE(Y,MIN))
+  #define HAS_Y_MAX 0 && (PIN_EXISTS(Y_MAX) && !IS_Z2_OR_PROBE(Y,MAX))
   #define HAS_Z_MIN (PIN_EXISTS(Z_MIN) && !IS_Z2_OR_PROBE(Z,MIN))
   #define HAS_Z_MAX (PIN_EXISTS(Z_MAX) && !IS_Z2_OR_PROBE(Z,MAX))
   #define HAS_Z2_MIN (PIN_EXISTS(Z2_MIN))
