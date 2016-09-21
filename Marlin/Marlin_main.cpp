@@ -343,7 +343,7 @@
 
 bool Running = true;
 
-uint8_t marlin_debug_flags = DEBUG_NONE;
+uint16_t marlin_debug_flags = DEBUG_NONE;
 
 /**
  * Cartesian Current Position
@@ -1478,15 +1478,25 @@ static void set_axis_is_at_home(const AxisEnum axis) {
       float homeposition[XYZ];
       LOOP_XYZ(i) homeposition[i] = LOGICAL_POSITION(base_home_pos((AxisEnum)i), i);
 
-      // SERIAL_ECHOPAIR("homeposition X:", homeposition[X_AXIS]);
-      // SERIAL_ECHOLNPAIR(" Y:", homeposition[Y_AXIS]);
+      #if ENABLED(DEBUG_SCARA_KINEMATICS)
+        if (DEBUGGING(SCARA)) {
+          SERIAL_ECHOPAIR("homeposition X:", homeposition[X_AXIS]);
+          SERIAL_ECHOLNPAIR(" Y:", homeposition[Y_AXIS]);
+        }
+      #endif
 
       /**
        * Get Home position SCARA arm angles using inverse kinematics,
        * and calculate homing offset using forward kinematics
        */
-      inverse_kinematics(homeposition);
-      forward_kinematics_SCARA(delta[A_AXIS], delta[B_AXIS]);
+      inverse_kinematics(homeposition);                 // result into `delta`
+
+      #if ENABLED(DEBUG_SCARA_KINEMATICS)
+        if (DEBUGGING(SCARA)) {
+          SERIAL_ECHOPAIR("Delta A:", delta[A_AXIS]);
+          SERIAL_ECHOLNPAIR(" B:", delta[B_AXIS]);
+        }
+      #endif
 
       // SERIAL_ECHOPAIR("Cartesian X:", cartes[X_AXIS]);
       // SERIAL_ECHOLNPAIR(" Y:", cartes[Y_AXIS]);
@@ -7602,19 +7612,32 @@ inline void gcode_M110() {
 inline void gcode_M111() {
   marlin_debug_flags = parser.seen('S') ? parser.value_byte() : (uint8_t)DEBUG_NONE;
 
+  #if DISABLED(DEBUG_LEVELING_FEATURE)
+    marlin_debug_flags &= ~DEBUG_LEVELING;
+  #endif
+
   const static char str_debug_1[] PROGMEM = MSG_DEBUG_ECHO;
   const static char str_debug_2[] PROGMEM = MSG_DEBUG_INFO;
   const static char str_debug_4[] PROGMEM = MSG_DEBUG_ERRORS;
   const static char str_debug_8[] PROGMEM = MSG_DEBUG_DRYRUN;
   const static char str_debug_16[] PROGMEM = MSG_DEBUG_COMMUNICATION;
-  #if ENABLED(DEBUG_LEVELING_FEATURE)
-    const static char str_debug_32[] PROGMEM = MSG_DEBUG_LEVELING;
+  const static char str_debug_32[] PROGMEM =
+    #if ENABLED(DEBUG_LEVELING_FEATURE)
+      MSG_DEBUG_LEVELING
+    #else
+      ""
+    #endif
+  ;
+  #if ENABLED(MAKERARM_SCARA)
+    const static char str_debug_64[] PROGMEM = MSG_DEBUG_SCARA;
+    const static char str_debug_128[] PROGMEM = MSG_DEBUG_SCARA2;
   #endif
 
   const static char* const debug_strings[] PROGMEM = {
-    str_debug_1, str_debug_2, str_debug_4, str_debug_8, str_debug_16
-    #if ENABLED(DEBUG_LEVELING_FEATURE)
-      , str_debug_32
+    str_debug_1, str_debug_2, str_debug_4, str_debug_8, str_debug_16, str_debug_32
+    #if ENABLED(MAKERARM_SCARA)
+      , str_debug_64
+      , str_debug_128
     #endif
   };
 

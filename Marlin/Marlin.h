@@ -189,7 +189,7 @@ void quickstop_stepper();
   void handle_filament_runout();
 #endif
 
-extern uint8_t marlin_debug_flags;
+extern uint16_t marlin_debug_flags;
 #define DEBUGGING(F) (marlin_debug_flags & (DEBUG_## F))
 
 extern bool Running;

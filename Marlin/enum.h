@@ -82,7 +82,9 @@ enum DebugFlags {
   DEBUG_COMMUNICATION = _BV(4), ///< Not implemented
   DEBUG_LEVELING      = _BV(5), ///< Print detailed output for homing and leveling
   DEBUG_MESH_ADJUST   = _BV(6), ///< UBL bed leveling
-  DEBUG_ALL           = 0xFF
+  DEBUG_SCARA         = _BV(7),
+  DEBUG_SCARA2        = _BV(8),
+  DEBUG_ALL           = 0xFFFF
 };
 
 enum EndstopEnum {
