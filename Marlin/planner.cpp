@@ -711,6 +711,24 @@ void Planner::_buffer_line(const float &a, const float &b, const float &c, const
     const float mm_D_float = SQRT(sq(a - position_float[X_AXIS]) + sq(b - position_float[Y_AXIS]));
   #endif
 
+  //#define NO_STEPPING
+
+  #if ENABLED(NO_STEPPING)
+    // The position is set provisionally to the given target position
+    // but the actual move may be interrupted by an endstop or probe,
+    // so the planner position may need to be refreshed in such cases.
+    memcpy(position, target, sizeof(position));
+
+    // If moving below zero assume it's a probe or homing move
+    // Probe moves have a known destination, so use that here to
+    // set the steppers' true final position.
+    if (target[Z_AXIS] < 0)
+      target[Z_AXIS] = NEAR(target[Z_AXIS], -(Z_MAX_LENGTH) - 10) ? -zprobe_zoffset : 0;
+
+    stepper.set_position(target[X_AXIS], target[Y_AXIS], target[Z_AXIS], target[E_AXIS]);
+    return;
+  #endif
+
   const long da = target[X_AXIS] - position[X_AXIS],
              db = target[Y_AXIS] - position[Y_AXIS],
              dc = target[Z_AXIS] - position[Z_AXIS];
