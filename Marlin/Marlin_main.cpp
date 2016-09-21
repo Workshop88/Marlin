@@ -629,6 +629,17 @@ static uint8_t target_extruder;
 
 float cartes[XYZ] = { 0 };
 
+#if ENABLED(MAKERARM_SCARA)
+
+  #define LEFT_ARM false
+  #define RIGHT_ARM true
+
+  bool arm_orientation = LEFT_ARM;
+
+  bool set_head_index = true;
+
+#endif
+
 #if ENABLED(FILAMENT_WIDTH_SENSOR)
   bool filament_sensor = false;                                 // M405 turns on filament sensor control. M406 turns it off.
   float filament_width_nominal = DEFAULT_NOMINAL_FILAMENT_DIA,  // Nominal filament width. Change with M404.
@@ -2288,6 +2299,55 @@ static void clean_up_after_endstop_or_probe_move() {
     return RAW_CURRENT_POSITION(Z) + zprobe_zoffset;
   }
 
+  #if ENABLED(MAKERARM_SCARA)
+
+    /**
+     * Get the arm-end position based on the probe position
+     * If the position is unreachable return vector_3 0,0,0
+     */
+    vector_3 probe_point_to_end_point(const float &x, const float &y) {
+
+      // Simply can't reach the given point
+      if (HYPOT2(x, y) > sq(L1 + L2 + Y_PROBE_OFFSET_FROM_EXTRUDER))
+        return vector_3();
+
+      float pos[XYZ] = { x, y, 0 };
+
+      // Get the angles for placing the probe at x, y
+      inverse_kinematics(pos, Y_PROBE_OFFSET_FROM_EXTRUDER);
+
+      // Get the arm-end XY based on the given angles
+      forward_kinematics_SCARA(delta[A_AXIS], delta[B_AXIS]);
+      float tx = LOGICAL_X_POSITION(cartes[X_AXIS]),
+            ty = LOGICAL_Y_POSITION(cartes[Y_AXIS]);
+
+      return vector_3(tx, ty, 0);
+    }
+
+    /**
+     * Get the probe position based on the arm-end position
+     * If the position is unreachable return vector_3 0,0,0
+     */
+    vector_3 end_point_to_probe_point(const float logical[XYZ]) {
+
+      // Simply can't reach the given point
+      if (HYPOT2(logical[X_AXIS], logical[Y_AXIS]) > sq(L1 + L2))
+        return vector_3();
+
+      // Get the angles for placing the arm-end at x, y
+      inverse_kinematics(logical);
+
+      // Get the probe XY based on the sum of the angles
+      float ab = RADIANS(delta[A_AXIS] + delta[B_AXIS] + 90.0);
+      return vector_3(
+        logical[X_AXIS] + sin(ab) * Y_PROBE_OFFSET_FROM_EXTRUDER,
+        logical[Y_AXIS] - cos(ab) * Y_PROBE_OFFSET_FROM_EXTRUDER,
+        0
+      );
+    }
+
+  #endif // MAKERARM_SCARA
+
   /**
    * - Move to the given XY
    * - Deploy the probe, if not already deployed
@@ -2317,13 +2377,20 @@ static void clean_up_after_endstop_or_probe_move() {
         do_blocking_move_to_z(delta_clip_start_height);
     #endif
 
+    #if ENABLED(MAKERARM_SCARA)
+      vector_3 point = probe_point_to_end_point(x, y);
+      float dx = point.x, dy = point.y;
+      if (dx == 0.0 && dy == 0.0) { BUZZ(100, 220); return 0.0; }
+    #else
+      float dx = x - X_PROBE_OFFSET_FROM_EXTRUDER,
+            dy = y - Y_PROBE_OFFSET_FROM_EXTRUDER;
+    #endif
+
     // Ensure a minimum height before moving the probe
     do_probe_raise(Z_CLEARANCE_BETWEEN_PROBES);
 
-    feedrate_mm_s = XY_PROBE_FEEDRATE_MM_S;
-
     // Move the probe to the given XY
-    do_blocking_move_to_xy(x - (X_PROBE_OFFSET_FROM_EXTRUDER), y - (Y_PROBE_OFFSET_FROM_EXTRUDER));
+    do_blocking_move_to_xy(dx, dy, XY_PROBE_FEEDRATE_MM_S);
 
     if (DEPLOY_PROBE()) return NAN;
 
@@ -3214,6 +3281,65 @@ void gcode_get_destination() {
 
 #endif // HOST_KEEPALIVE_FEATURE
 
+bool position_is_reachable(const float target[XYZ]
+  #if HAS_BED_PROBE
+    , bool by_probe=false
+  #endif
+) {
+  float dx = target[X_AXIS], dy = target[Y_AXIS];
+
+  #define WITHINXY(x,y) ((x) >= X_MIN_POS - 0.0001 && (x) <= X_MAX_POS + 0.0001 && (y) >= Y_MIN_POS - 0.0001 && (y) <= Y_MAX_POS + 0.0001)
+  #define WITHINZ(z) ((z) >= Z_MIN_POS - 0.0001 && (z) <= Z_MAX_POS + 0.0001)
+
+  #if ENABLED(MAKERARM_SCARA)
+    if (by_probe) {
+      // If the returned point is 0,0,0 the radius test will fail
+      vector_3 point = probe_point_to_end_point(dx, dy);
+      // Is the tool point outside the rectangular bounds?
+      if (!WITHINXY(point.x, point.y)) {
+        // Try the opposite arm orientation
+        arm_orientation = !arm_orientation;
+        point = probe_point_to_end_point(dx, dy);
+        // If still unreachable keep the old arm orientation
+        if (!WITHINXY(point.x, point.y)) arm_orientation = !arm_orientation;
+      }
+      dx = point.x;
+      dy = point.y;
+    }
+  #elif HAS_BED_PROBE
+    if (by_probe) {
+      dx -= X_PROBE_OFFSET_FROM_EXTRUDER;
+      dy -= Y_PROBE_OFFSET_FROM_EXTRUDER;
+    }
+  #endif
+
+  dx -= LOGICAL_X_POSITION(0);
+  dy -= LOGICAL_Y_POSITION(0);
+
+  const float dz = RAW_Z_POSITION(target[Z_AXIS]);
+
+  #if IS_SCARA
+    #if MIDDLE_DEAD_ZONE_R > 0
+      const float R2 = HYPOT2(dx - (SCARA_OFFSET_X), dy - (SCARA_OFFSET_Y));
+      bool good = WITHINZ(dz) && (R2 >= sq(float(MIDDLE_DEAD_ZONE_R))) && (R2 <= sq(L1 + L2));
+      /*
+        SERIAL_ECHOPAIR("Point X", dx);
+        SERIAL_ECHOPAIR(" Y", dy);
+        SERIAL_ECHOPAIR(" R2:", R2);
+        SERIAL_ECHOPAIR(" Inner:", sq(float(MIDDLE_DEAD_ZONE_R)));
+        SERIAL_ECHOPAIR(" Outer:", sq(L1 + L2));
+        SERIAL_ECHOLN(good ? " REACHABLE" : " UNREACHABLE");
+      //*/
+      return good;
+    #else
+      return WITHINZ(dz) && HYPOT2(dx - (SCARA_OFFSET_X), dy - (SCARA_OFFSET_Y)) <= sq(L1 + L2);
+    #endif
+  #elif ENABLED(DELTA)
+    return WITHINZ(dz) && HYPOT2(dx, dy) <= sq((float)(DELTA_PRINTABLE_RADIUS));
+  #else
+    return WITHINZ(dz) && WITHINXY(dx, dy);
+  #endif
+}
 
 /**************************************************
  ***************** GCode Handlers *****************
@@ -12254,7 +12380,129 @@ void prepare_move_to_destination() {
     //*/
   }
 
-#endif // MORGAN_SCARA
+#elif ENABLED(MAKERARM_SCARA)
+
+  /**
+   * SCARA Forward Kinematics following the equation
+   *
+   *   x = Ls × cos(ϕ) + Le × cos(ϕ + θ)
+   *   y = Ls × sin(ϕ) + Le × sin(ϕ + θ)
+   *
+   * - MakerArm's X0 Y0 lies in the center.
+   * - The coordinate system is left-handed
+   * - Decrease A or B to rotate them clockwise.
+   * - B0 is straight out from the elbow.
+   * - Home is the NE corner: X-400 Y0 (A180 B0)
+   *
+   */
+  void forward_kinematics_SCARA(const float &a, const float &b) {
+
+    // Sine for Y offsets, Cosine for X offsets
+    float sin_a  = sin(RADIANS(a)),   cos_a  = cos(RADIANS(a)),
+          sin_ab = sin(RADIANS(a+b)), cos_ab = cos(RADIANS(a+b));
+
+    if (L1 == L2) {
+      // x = L × (cos(ϕ) + cos(ϕ + θ))
+      // y = L × (sin(ϕ) + sin(ϕ + θ))
+      cartes[X_AXIS] = L1 * (cos_a + cos_ab) + SCARA_OFFSET_X;
+      cartes[Y_AXIS] = L1 * (sin_a + sin_ab) + SCARA_OFFSET_Y;
+    }
+    else {
+      // x = Ls × cos(ϕ) + Le × cos(ϕ + θ)
+      // y = Ls × sin(ϕ) + Le × sin(ϕ + θ)
+      cartes[X_AXIS] = L1 * cos_a + L2 * cos_ab + SCARA_OFFSET_X;
+      cartes[Y_AXIS] = L1 * sin_a + L2 * sin_ab + SCARA_OFFSET_Y;
+    }
+
+    cartes[Z_AXIS] = RAW_CURRENT_POSITION(Z);
+
+    #if ENABLED(DEBUG_SCARA_KINEMATICS)
+      if (DEBUGGING(SCARA)) {
+        SERIAL_ECHOPAIR("  SCARA FK a:", a);
+        SERIAL_ECHOPAIR(" b:", b);
+        SERIAL_ECHOPAIR(" sin_a:", sin_a);
+        SERIAL_ECHOPAIR(" cos_a:", cos_a);
+        SERIAL_ECHOPAIR(" sin_ab:", sin_ab);
+        SERIAL_ECHOLNPAIR(" cos_ab:", cos_ab);
+        DEBUG_POS("SCARA FK", cartes);
+      }
+    #endif
+  }
+
+  /**
+   * SCARA Inverse Kinematics
+   *
+   * Convert given logical XY to AB angles, allowing for probe and tool offsets.
+   *
+   * Follows the equation
+   *
+   *   d2 = sq(x) + sq(y)
+   *   q  = acos((d2 + sq(L2) - sq(L1)) / (2 * L2 * sqrt(d2)))
+   *   b  = acos((d2 - sq(L2) - sq(L1)) / (2 * L1 * L2))
+   *   a  = atan2(y, x) + q - b
+   *
+   * Includes variants for right-arm orientation and equal arm lengths.
+   * The `probe_y_offset` shortens or lengthens Arm 2 for probing.
+   *
+   * Result in delta[], including a copy of the logical Z coordinate,
+   * suitable for passing on to the planner.
+   *
+   */
+  void inverse_kinematics(const float logical[XYZ], const float probe_y_offset) {
+
+    // Translate the Cartesian position to SCARA space
+    #if ENABLED(USE_RAW_KINEMATICS)
+      const float sx = logical[X_AXIS] - SCARA_OFFSET_X,
+                  sy = logical[Y_AXIS] - SCARA_OFFSET_Y;
+    #else
+      const float sx = RAW_X_POSITION(logical[X_AXIS]) - SCARA_OFFSET_X,
+                  sy = RAW_Y_POSITION(logical[Y_AXIS]) - SCARA_OFFSET_Y;
+    #endif
+
+    // Square of the distance from center to target
+    const float D2 = HYPOT2(sx, sy);
+
+    // Calculate angles. Use simplified equations for equal length arms
+    float angA, angB;
+    if (probe_y_offset) {
+      float p2 = L2 + probe_y_offset, p2_2 = sq(p2);
+      angA = acos((D2 + p2_2 - L1_2) / (2 * p2 * sqrt(D2)));
+      angB = acos((D2 - p2_2 - L1_2) / (2 * L1 * p2));
+    }
+    else if (L1 != L2) {
+      angA = acos((D2 + L2_2 - L1_2) / (2 * L2 * sqrt(D2)));
+      angB = acos((D2 - L2_2 - L1_2) / (2 * L1 * L2));
+    }
+    else {
+      angA = acos(D2 / (2 * L1 * sqrt(D2)));
+      angB = acos((D2 - L1_2_2) / L1_2_2);
+    }
+
+    delta[A_AXIS] = DEGREES(atan2(sy, sx) + (arm_orientation ? angA - angB : angB - angA));
+    delta[B_AXIS] = DEGREES(arm_orientation ? angB : -angB);
+
+    // Only allow A angles from -90 to +270
+    if (delta[A_AXIS] < 0) delta[A_AXIS] += 360.0;
+    if (delta[A_AXIS] > 270) delta[A_AXIS] -= 360.0;
+
+    // Return the logical Z as-is
+    delta[C_AXIS] = logical[Z_AXIS];
+
+    #if ENABLED(DEBUG_SCARA_KINEMATICS)
+      if (DEBUGGING(SCARA2)) {
+        SERIAL_ECHOPAIR("  SCARA IK Logical X:", logical[X_AXIS]);
+        SERIAL_ECHOPAIR(" Y:", logical[Y_AXIS]);
+        SERIAL_ECHOLNPAIR(" Z:", logical[Z_AXIS]);
+        SERIAL_ECHOPAIR("    S-Space X:", sx);
+        SERIAL_ECHOLNPAIR(" Y:", sy);
+        SERIAL_ECHOPAIR("    Angle A :", delta[A_AXIS]);
+        SERIAL_ECHOPAIR(" B:", delta[B_AXIS]);
+        SERIAL_ECHOLNPAIR(" Phi:", delta[B_AXIS] - delta[A_AXIS]);
+      }
+    #endif
+  }
+
+#endif // MAKERARM_SCARA
 
 #if ENABLED(TEMP_STAT_LEDS)
 

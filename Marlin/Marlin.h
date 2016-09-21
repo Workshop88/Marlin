@@ -293,7 +293,6 @@ extern float soft_endstop_min[XYZ], soft_endstop_max[XYZ];
 
 #if IS_KINEMATIC
   extern float delta[ABC];
-  void inverse_kinematics(const float logical[XYZ]);
 #endif
 
 #if ENABLED(DELTA)
@@ -304,8 +303,14 @@ extern float soft_endstop_min[XYZ], soft_endstop_max[XYZ];
                delta_segments_per_second,
                delta_tower_angle_trim[2],
                delta_clip_start_height;
+  void inverse_kinematics(const float logical[XYZ]);
   void recalc_delta_settings(float radius, float diagonal_rod);
 #elif IS_SCARA
+  #if ENABLED(MAKERARM_SCARA)
+    void inverse_kinematics(const float logical[XYZ], const float probe_y_offset=0.0);
+  #elif ENABLED(MORGAN_SCARA)
+    void inverse_kinematics(const float logical[XYZ]);
+  #endif
   void forward_kinematics_SCARA(const float &a, const float &b);
 #endif
 
