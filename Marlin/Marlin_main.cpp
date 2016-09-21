@@ -5319,8 +5319,14 @@ void home_all_axes() { gcode_G28(true); }
    *   S0  Leave the probe deployed
    */
   inline void gcode_G30() {
-    const float xpos = parser.seen('X') ? parser.value_linear_units() : current_position[X_AXIS] + X_PROBE_OFFSET_FROM_EXTRUDER,
-                ypos = parser.seen('Y') ? parser.value_linear_units() : current_position[Y_AXIS] + Y_PROBE_OFFSET_FROM_EXTRUDER;
+    #if ENABLED(MAKERARM_SCARA)
+      vector_3 probe = end_point_to_probe_point(current_position);
+      const float xpos = parser.seen('X') ? parser.value_linear_units() : probe.x,
+                  ypos = parser.seen('Y') ? parser.value_linear_units() : probe.y;
+    #else
+      const float xpos = parser.seen('X') ? parser.value_linear_units() : current_position[X_AXIS] + X_PROBE_OFFSET_FROM_EXTRUDER,
+                  ypos = parser.seen('Y') ? parser.value_linear_units() : current_position[Y_AXIS] + Y_PROBE_OFFSET_FROM_EXTRUDER;
+    #endif
 
     if (!position_is_reachable_by_probe_xy(xpos, ypos)) return;
 
