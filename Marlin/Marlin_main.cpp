@@ -228,6 +228,15 @@
  * M913 - Set HYBRID_THRESHOLD speed. (Requires HYBRID_THRESHOLD)
  * M914 - Set SENSORLESS_HOMING sensitivity. (Requires SENSORLESS_HOMING)
  *
+ * ************ PICK_AND_PLACE
+ * M800 / M801: Vacuum 1 ON/OFF
+ * M802 / M803: Exhaust 1 ON/OFF
+ * M804 / M805: Vacuum 3 ON/OFF
+ * M806 / M807: Exhaust 2 ON/OFF
+ * M808 / M809: Pump ON/OFF
+ * M810 / M811: LED ON/OFF
+ *
+ * ************ SCARA
  * M360 - SCARA calibration: Move to cal-position ThetaA (0 deg calibration)
  * M361 - SCARA calibration: Move to cal-position ThetaB (90 deg calibration - steps per degree)
  * M362 - SCARA calibration: Move to cal-position PsiA (0 deg calibration)
@@ -3255,6 +3264,12 @@ void gcode_get_destination() {
     else
       destination[i] = current_position[i];
   }
+
+  #if ENABLED(PICK_AND_PLACE)
+    // Spindle Axis is called "C", corresponds to E_AXIS (index S_AXIS)
+    if (tool_type == TOOL_TYPE_PICKER && parser.seen('C'))
+      destination[S_AXIS] = parser.value_axis_units(S_AXIS);
+  #endif
 
   if (parser.seen('F') && parser.value_linear_units() > 0.0)
     feedrate_mm_s = MMM_TO_MMS(parser.value_feedrate());
@@ -9598,6 +9613,66 @@ inline void gcode_M503() {
 
 #endif // ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED
 
+#if ENABLED(PICK_AND_PLACE)
+  /**
+   * M800/M801: Vacuum 1 ON/OFF
+   */
+  #if PIN_EXISTS(PP_VACUUM_1)
+    inline void gcode_M800_M801(bool on) {
+      stepper.synchronize();
+      digitalWrite(PP_VACUUM_1_PIN, on ? LOW : HIGH);
+    }
+  #endif
+  /**
+   * M802/M803: Exhaust 1 ON/OFF
+   */
+  #if PIN_EXISTS(PP_EXHAUST_1)
+    inline void gcode_M802_M803(bool on) {
+      stepper.synchronize();
+      digitalWrite(PP_EXHAUST_1_PIN, on ? LOW : HIGH);
+    }
+  #endif
+  /**
+   * M804/M805: Vacuum 3 ON/OFF
+   */
+  #if PIN_EXISTS(PP_VACUUM_2)
+    inline void gcode_M804_M805(bool on) {
+      stepper.synchronize();
+      digitalWrite(PP_VACUUM_2_PIN, on ? LOW : HIGH);
+    }
+  #endif
+  /**
+   * M806/M807: Exhaust 2 ON/OFF
+   */
+  #if PIN_EXISTS(PP_EXHAUST_2)
+    inline void gcode_M806_M807(bool on) {
+      stepper.synchronize();
+      digitalWrite(PP_EXHAUST_2_PIN, on ? LOW : HIGH);
+    }
+  #endif
+  /**
+   * M808/M809: Pump ON/OFF
+   */
+  #if PIN_EXISTS(PP_PUMP)
+    inline void gcode_M808_M809(bool on) {
+      stepper.synchronize();
+      uint8_t power = on ? (parser.seen('S') ? parser.value_byte() : 255) : 0;
+      digitalWrite(PP_PUMP_PIN, power);
+      analogWrite(PP_PUMP_PIN, power);
+    }
+  #endif
+  /**
+   * M810/M811: LED ON/OFF
+   */
+  #if PIN_EXISTS(PP_LED)
+    inline void gcode_M810_M811(bool on) {
+      stepper.synchronize();
+      digitalWrite(PP_LED_PIN, on ? 255 : 0);
+    }
+  #endif
+
+#endif // PICK_AND_PLACE
+
 #if HAS_BED_PROBE
 
   void refresh_zprobe_zoffset(const bool no_babystep/*=false*/) {
@@ -11305,6 +11380,52 @@ void process_next_command() {
           break;
       #endif // HAS_BED_PROBE
 
+      #if ENABLED(PICK_AND_PLACE)
+
+        #if PIN_EXISTS(PP_VACUUM_1)
+          case 800: // M800: Vacuum 1 ON
+          case 801: // M801: Vacuum 1 OFF
+            gcode_M800_M801(parser.codenum == 800);
+            break;
+        #endif
+
+        #if PIN_EXISTS(PP_EXHAUST_1)
+          case 802: // M802: Exhaust 1 ON
+          case 803: // M803: Exhaust 1 OFF
+            gcode_M802_M803(parser.codenum == 802);
+            break;
+        #endif
+
+        #if PIN_EXISTS(PP_VACUUM_2)
+          case 804: // M804: Vacuum 2 ON
+          case 805: // M805: Vacuum 3 OFF
+            gcode_M804_M805(parser.codenum == 804);
+            break;
+        #endif
+
+        #if PIN_EXISTS(PP_EXHAUST_2)
+          case 806: // M806: Exhaust 2 ON
+          case 807: // M807: Exhaust 2 OFF
+            gcode_M806_M807(parser.codenum == 806);
+            break;
+        #endif
+
+        #if PIN_EXISTS(PP_PUMP)
+          case 808: // M808: Pump ON
+          case 809: // M809: Pump OFF
+            gcode_M808_M809(parser.codenum == 808);
+            break;
+        #endif
+
+        #if PIN_EXISTS(PP_LED)
+          case 810: // M810: LED ON
+          case 811: // M811: LED OFF
+            gcode_M810_M811(parser.codenum == 810);
+            break;
+        #endif
+
+      #endif // PICK_AND_PLACE
+
       #if ENABLED(ADVANCED_PAUSE_FEATURE)
         case 600: // M600: Pause for filament change
           gcode_M600();
@@ -11315,7 +11436,7 @@ void process_next_command() {
         case 605: // M605: Set Dual X Carriage movement mode
           gcode_M605();
           break;
-      #endif // DUAL_X_CARRIAGE
+      #endif // DUAL_X_CARRIAGE || DUAL_NOZZLE_DUPLICATION_MODE
 
       #if ENABLED(LIN_ADVANCE)
         case 900: // M900: Set advance K factor.
@@ -13485,12 +13606,32 @@ void setup() {
   #endif
 
   #if ENABLED(PICK_AND_PLACE)
-    pinMode(PP_PUMP_PIN, OUTPUT);
-    pinMode(PP_VALVE_1_PIN, OUTPUT);
-    pinMode(PP_VALVE_2_PIN, OUTPUT);
-    SERIAL_ECHOLNPGM("PP_PUMP_PIN = " STRINGIFY(PP_PUMP_PIN));
-    SERIAL_ECHOLNPGM("PP_VALVE_1_PIN = " STRINGIFY(PP_VALVE_1_PIN));
-    SERIAL_ECHOLNPGM("PP_VALVE_2_PIN = " STRINGIFY(PP_VALVE_2_PIN));
+
+    #if PIN_EXISTS(PP_VACUUM_1)
+      pinMode(PP_VACUUM_1_PIN, OUTPUT);
+    #endif
+    #if PIN_EXISTS(PP_EXHAUST_1)
+      pinMode(PP_EXHAUST_1_PIN, OUTPUT);
+    #endif
+    #if PIN_EXISTS(PP_VACUUM_2)
+      pinMode(PP_VACUUM_2_PIN, OUTPUT);
+    #endif
+    #if PIN_EXISTS(PP_EXHAUST_2)
+      pinMode(PP_EXHAUST_2_PIN, OUTPUT);
+    #endif
+    #if PIN_EXISTS(PP_PUMP)
+      pinMode(PP_PUMP_PIN, OUTPUT);
+    #endif
+    #if PIN_EXISTS(PP_LED)
+      pinMode(PP_LED_PIN, OUTPUT);
+    #endif
+
+  #endif // PICK_AND_PLACE
+
+  #ifdef OSCILLOSCOPE_PIN_A
+    SERIAL_ECHOLNPGM("OSCILLOSCOPE_PIN_A = " STRINGIFY(OSCILLOSCOPE_PIN_A));
+    pinMode(OSCILLOSCOPE_PIN_A, OUTPUT);
+    digitalWrite(OSCILLOSCOPE_PIN_A, LOW);
   #endif
 }
 

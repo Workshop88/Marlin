@@ -1680,9 +1680,12 @@
   #define PP_OFFSET_Z  3.8
 
   // Pins for the pump and valves
-  #define PP_PUMP_PIN    PIN_A5
-  #define PP_VALVE_1_PIN PIN_A7 // Megatronics 2: A10/D64
-  #define PP_VALVE_2_PIN PIN_A9 // Megatronics 2: A9/D63
+  #define PP_PUMP_PIN      44 // Megatronics 3.1 Keypad/AUX2 Pinout 3
+  #define PP_VACUUM_1_PIN  45 // Megatronics 3.1 Keypad/AUX2 Pinout 5
+  #define PP_VACUUM_2_PIN  43 // Megatronics 3.1 Keypad/AUX2 Pinout 7
+  #define PP_EXHAUST_1_PIN -1
+  #define PP_EXHAUST_2_PIN -1
+  #define PP_LED_PIN LED_PIN
 
 #endif
 
