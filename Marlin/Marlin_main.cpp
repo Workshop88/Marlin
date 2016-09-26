@@ -2276,8 +2276,9 @@ static void clean_up_after_endstop_or_probe_move() {
       // Do a first probe at the fast speed
       do_probe_move(-(Z_MAX_LENGTH) - 10, Z_PROBE_SPEED_FAST);
 
+      float first_probe_z = current_position[Z_AXIS];
+
       #if ENABLED(DEBUG_LEVELING_FEATURE)
-        float first_probe_z = current_position[Z_AXIS];
         if (DEBUGGING(LEVELING)) SERIAL_ECHOLNPAIR("1st Probe Z:", first_probe_z);
       #endif
 
@@ -2305,14 +2306,19 @@ static void clean_up_after_endstop_or_probe_move() {
       if (DEBUGGING(LEVELING)) DEBUG_POS("<<< run_z_probe", current_position);
     #endif
 
-    // Debug: compare probe heights
-    #if ENABLED(PROBE_DOUBLE_TOUCH) && ENABLED(DEBUG_LEVELING_FEATURE)
-      if (DEBUGGING(LEVELING)) {
-        SERIAL_ECHOPAIR("2nd Probe Z:", current_position[Z_AXIS]);
-        SERIAL_ECHOLNPAIR(" Discrepancy:", first_probe_z - current_position[Z_AXIS]);
-      }
+    const float z2 = RAW_CURRENT_POSITION(Z) + zprobe_zoffset;
+
+    // [MakerArm] Return average of probe heights
+    #if ENABLED(PROBE_DOUBLE_TOUCH)
+      #if ENABLED(DEBUG_LEVELING_FEATURE)
+        if (DEBUGGING(LEVELING)) {
+          SERIAL_ECHOPAIR("2nd Probe Z:", z2);
+          SERIAL_ECHOLNPAIR(" Discrepancy:", first_probe_z - z2);
+        }
+      #endif
+      return (z2 + first_probe_z) * 0.5;
     #endif
-    return RAW_CURRENT_POSITION(Z) + zprobe_zoffset;
+    return z2;
   }
 
   #if ENABLED(MAKERARM_SCARA)
