@@ -197,6 +197,10 @@
  * M420 - Enable/Disable Leveling (with current values) S1=enable S0=disable (Requires MESH_BED_LEVELING or ABL)
  * M421 - Set a single Z coordinate in the Mesh Leveling grid. X<units> Y<units> Z<units> (Requires MESH_BED_LEVELING or AUTO_BED_LEVELING_UBL)
  * M428 - Set the home_offset based on the current_position. Nearest edge applies. (Disabled by NO_WORKSPACE_OFFSETS or DELTA)
+ * M450 - MakerArm: Set and/or report current Printer Mode (i.e., tool type)
+ * M451 - MakerArm: Set FFF mode (M450 S0)
+ * M452 - MakerArm: Set Laser mode (M450 S2)
+ * M453 - MakerArm: Set CNC mode (M450 S4)
  * M500 - Store parameters in EEPROM. (Requires EEPROM_SETTINGS)
  * M501 - Restore parameters from EEPROM. (Requires EEPROM_SETTINGS)
  * M502 - Revert to the default "factory settings". ** Does not write them to EEPROM! **
@@ -229,12 +233,12 @@
  * M914 - Set SENSORLESS_HOMING sensitivity. (Requires SENSORLESS_HOMING)
  *
  * ************ PICK_AND_PLACE
- * M800 / M801: Vacuum 1 ON/OFF
- * M802 / M803: Exhaust 1 ON/OFF
- * M804 / M805: Vacuum 3 ON/OFF
- * M806 / M807: Exhaust 2 ON/OFF
- * M808 / M809: Pump ON/OFF
- * M810 / M811: LED ON/OFF
+ * M800, M801 - Vacuum 1 ON/OFF
+ * M802, M803 - Exhaust 1 ON/OFF
+ * M804, M805 - Vacuum 3 ON/OFF
+ * M806, M807 - Exhaust 2 ON/OFF
+ * M808, M809 - Pump ON/OFF
+ * M810, M811 - LED ON/OFF
  *
  * ************ SCARA
  * M360 - SCARA calibration: Move to cal-position ThetaA (0 deg calibration)
@@ -243,7 +247,7 @@
  * M363 - SCARA calibration: Move to cal-position PsiB (90 deg calibration - steps per degree)
  * M364 - SCARA calibration: Move to cal-position PSIC (90 deg to Theta calibration position)
  *
- * ************ Custom codes - This can change to suit future G-code regulations
+ * ************ CUSTOM CODES
  * M928 - Start SD logging: "M928 filename.gco". Stop with M29. (Requires SDSUPPORT)
  * M999 - Restart after being stopped by error
  *
@@ -650,6 +654,8 @@ float cartes[XYZ] = { 0 };
   #define RIGHT_ARM true
 
   bool arm_orientation = LEFT_ARM;
+
+  ToolType tool_type = TOOL_TYPE_EXTRUDER;
 
   bool set_head_index = true;
 
@@ -1619,16 +1625,35 @@ inline void set_destination_to_current() { COPY(destination, current_position); 
     refresh_cmd_timeout();
 
     #if UBL_DELTA
+
       // ubl segmented line will do z-only moves in single segment
       ubl.prepare_segmented_line_to(destination, MMS_SCALED(fr_mm_s ? fr_mm_s : feedrate_mm_s));
+
     #else
+
       if ( current_position[X_AXIS] == destination[X_AXIS]
         && current_position[Y_AXIS] == destination[Y_AXIS]
         && current_position[Z_AXIS] == destination[Z_AXIS]
-        && current_position[E_AXIS] == destination[E_AXIS]
+        && current_position[E_AXIS] == destination[E_AXIS] // E or Spindle
       ) return;
 
+      #if ENABLED(PICK_AND_PLACE) && IS_SCARA
+        float real_s_dest = destination[S_AXIS];
+        // The active spindle should do alignment compensation
+        if (tool_type == TOOL_TYPE_PICKER) {
+          // Subtract the angular change from the target angle since moving AB also rotates "S"
+          inverse_kinematics(destination);
+          destination[S_AXIS] -= (delta[A_AXIS] + delta[B_AXIS] - stepper.get_axis_position_mm(A_AXIS) - stepper.get_axis_position_mm(B_AXIS));
+        }
+      #endif
+
       planner.buffer_line_kinematic(destination, MMS_SCALED(fr_mm_s ? fr_mm_s : feedrate_mm_s), active_extruder);
+
+      #if ENABLED(PICK_AND_PLACE) && IS_SCARA
+        destination[S_AXIS] = real_s_dest;
+        planner.set_position_mm(S_AXIS, real_s_dest); // will synchronize
+      #endif
+
     #endif
 
     set_current_to_destination();
@@ -9613,9 +9638,105 @@ inline void gcode_M503() {
 
 #endif // ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED
 
+#if ENABLED(MAKERARM_SCARA)
+
+  /**
+   * MakerArm Tool Selection:
+   *  - Extruder
+   *  - Picker (Spindle, Pump, Valve)
+   *  - Laser
+   *  - Foam Cutter
+   *  - Engraver
+   */
+  static void change_tool_type(ToolType type) {
+    tool_type = type;
+    active_extruder = (type == TOOL_TYPE_PICKER) ? 1 : 0;
+
+    switch (type) {
+      case TOOL_TYPE_EXTRUDER:
+        stepper.activate_spindle(false);
+        current_position[E_AXIS] = 0;
+        planner.set_e_position_mm(0);
+        // planner.axis_steps_per_mm[E_AXIS] = E_STEPS_PER_MM;
+        // planner.max_feedrate_mm_s[E_AXIS] = 25;
+        // planner.max_acceleration_mm_per_s2[E_AXIS] = 10000;
+        // planner.refresh_positioning();
+        break;
+
+      // Picker uses the E axis, for now
+      case TOOL_TYPE_PICKER:
+        SET_OUTPUT(PP_PUMP_PIN);
+        current_position[E_AXIS] = 0;
+        planner.set_e_position_mm(0);
+        // planner.axis_steps_per_mm[E_AXIS] = S_STEPS_PER_DEGREE;
+        // planner.max_feedrate_mm_s[E_AXIS] = 100;
+        // planner.max_acceleration_mm_per_s2[E_AXIS] = 1000;
+        // planner.refresh_positioning();
+        break;
+
+      case TOOL_TYPE_LASER: break;
+      case TOOL_TYPE_FOAM_CUTTER: break;
+      case TOOL_TYPE_MILLING: break;
+      default: break;
+    }
+  }
+
+  /**
+   * Shared function for Printer Mode GCodes
+   */
+  static void gcode_printer_mode(const int8_t new_tool) {
+    const static char str_tooltype_0[] PROGMEM = "Extruder";
+    const static char str_tooltype_1[] PROGMEM = "Laser";
+    const static char str_tooltype_2[] PROGMEM = "Milling";
+    const static char str_tooltype_3[] PROGMEM = "Picker";
+    const static char str_tooltype_4[] PROGMEM = "Solder";
+    const static char str_tooltype_5[] PROGMEM = "Plotter";
+    const static char str_tooltype_6[] PROGMEM = "Foam Cutter";
+    const static char* const tool_strings[] PROGMEM = {
+      str_tooltype_0, str_tooltype_1, str_tooltype_2, str_tooltype_3, str_tooltype_4, str_tooltype_5, str_tooltype_6
+    };
+    if (new_tool >= 0 && (ToolType)new_tool < TOOL_TYPE_COUNT) change_tool_type((ToolType)new_tool);
+    SERIAL_ECHO_START();
+    SERIAL_ECHOPGM("Tool: ");
+    serialprintPGM((char*)pgm_read_word(&(tool_strings[tool_type])));
+    SERIAL_CHAR(' ');
+    SERIAL_ECHOLN((int)(tool_type == TOOL_TYPE_EXTRUDER ? active_extruder : 0));
+  }
+
+  /**
+   * M450: Set and/or report current tool type
+   *
+   *  S<type> - The new tool type
+   */
+  inline void gcode_M450() {
+    gcode_printer_mode(parser.seen('S') ? parser.value_byte() : -1);
+  }
+
+  /**
+   * M451: Select FFF printer mode
+   */
+  inline void gcode_M451() { gcode_printer_mode(TOOL_TYPE_EXTRUDER); }
+
+  /**
+   * M452: Select Laser printer mode
+   */
+  inline void gcode_M452() { gcode_printer_mode(TOOL_TYPE_LASER); }
+
+  /**
+   * M453: Select CNC printer mode
+   */
+  inline void gcode_M453() { gcode_printer_mode(TOOL_TYPE_MILLING); }
+
+  /**
+   * M454: Select Pick-and-Place printer mode
+   */
+  inline void gcode_M454() { gcode_printer_mode(TOOL_TYPE_PICKER); }
+
+#endif
+
 #if ENABLED(PICK_AND_PLACE)
   /**
-   * M800/M801: Vacuum 1 ON/OFF
+   * M800, M801: Vacuum 1 ON/OFF
    */
   #if PIN_EXISTS(PP_VACUUM_1)
     inline void gcode_M800_M801(bool on) {
@@ -9624,7 +9745,7 @@ inline void gcode_M503() {
     }
   #endif
   /**
-   * M802/M803: Exhaust 1 ON/OFF
+   * M802, M803: Exhaust 1 ON/OFF
    */
   #if PIN_EXISTS(PP_EXHAUST_1)
     inline void gcode_M802_M803(bool on) {
@@ -9633,7 +9754,7 @@ inline void gcode_M503() {
     }
   #endif
   /**
-   * M804/M805: Vacuum 3 ON/OFF
+   * M804, M805: Vacuum 3 ON/OFF
    */
   #if PIN_EXISTS(PP_VACUUM_2)
     inline void gcode_M804_M805(bool on) {
@@ -9642,7 +9763,7 @@ inline void gcode_M503() {
     }
   #endif
   /**
-   * M806/M807: Exhaust 2 ON/OFF
+   * M806, M807: Exhaust 2 ON/OFF
    */
   #if PIN_EXISTS(PP_EXHAUST_2)
     inline void gcode_M806_M807(bool on) {
@@ -9651,7 +9772,7 @@ inline void gcode_M503() {
     }
   #endif
   /**
-   * M808/M809: Pump ON/OFF
+   * M808, M809: Pump ON/OFF
    */
   #if PIN_EXISTS(PP_PUMP)
     inline void gcode_M808_M809(bool on) {
@@ -9662,7 +9783,7 @@ inline void gcode_M503() {
     }
   #endif
   /**
-   * M810/M811: LED ON/OFF
+   * M810, M811: LED ON/OFF
    */
   #if PIN_EXISTS(PP_LED)
     inline void gcode_M810_M811(bool on) {
@@ -11374,6 +11495,24 @@ void process_next_command() {
           break;
       #endif
 
+      #if ENABLED(MAKERARM_SCARA)
+        case 450: // M450: Report current tool type
+          gcode_M450();
+          break;
+        case 451: // M451: Select FFF printer mode
+          gcode_M451();
+          break;
+        case 452: // M452: Select Laser printer mode
+          gcode_M452();
+          break;
+        case 453: // M453: Select CNC printer mode
+          gcode_M453();
+          break;
+        case 454: // M454: Select Pick-and-Place printer mode
+          gcode_M454();
+          break;
+      #endif
+
       #if HAS_BED_PROBE
         case 851: // M851: Set Z Probe Z Offset
           gcode_M851();
@@ -12183,6 +12322,23 @@ void set_current_from_steppers_for_axis(const AxisEnum axis) {
     // Fail if attempting move outside printable radius
     if (!position_is_reachable_xy(ltarget[X_AXIS], ltarget[Y_AXIS])) return true;
 
+    #if ENABLED(PICK_AND_PLACE) && IS_SCARA
+      //
+      // For MakerArm pick-and-place, S_AXIS automatically
+      // maintains its angle relative to the build area.
+      //
+      // This auto-rotates the picker (connected to E1).
+      //
+      // ltarget[S_AXIS] contains the destination area-relative angle.
+      // Angular rotation will be interpolated through the whole move.
+      //
+      if (tool_type == TOOL_TYPE_PICKER) {
+        // Subtract the angular change from the target angle since moving AB also rotates "S"
+        inverse_kinematics(ltarget);
+        ltarget[S_AXIS] -= (delta[A_AXIS] + delta[B_AXIS]) - (stepper.get_axis_position_mm(A_AXIS) + stepper.get_axis_position_mm(B_AXIS));
+      }
+    #endif
+
     // Get the cartesian distances moved in XYZE
     const float difference[XYZE] = {
       ltarget[X_AXIS] - current_position[X_AXIS],
@@ -12421,7 +12577,7 @@ void prepare_move_to_destination() {
 
   #if ENABLED(PREVENT_COLD_EXTRUSION)
 
-    if (!DEBUGGING(DRYRUN)) {
+    if (!DEBUGGING(DRYRUN) && !stepper.spindle_active) {
       if (destination[E_AXIS] != current_position[E_AXIS]) {
         if (thermalManager.tooColdToExtrude(active_extruder)) {
           current_position[E_AXIS] = destination[E_AXIS]; // Behave as if the move really took place, but ignore E part

@@ -351,6 +351,10 @@ extern float soft_endstop_min[XYZ], soft_endstop_max[XYZ];
   #define STOW_PROBE()
 #endif
 
+#if ENABLED(MAKERARM_SCARA)
+  extern ToolType tool_type;
+#endif
+
 #if ENABLED(HOST_KEEPALIVE_FEATURE)
   extern MarlinBusyState busy_state;
   #define KEEPALIVE_STATE(n) do{ busy_state = n; }while(0)
