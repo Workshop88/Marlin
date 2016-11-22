@@ -204,6 +204,8 @@
   #error "Replace SLED_PIN with SOL1_PIN (applies to both Z_PROBE_SLED and SOLENOID_PROBE)."
 #elif defined(CONTROLLERFAN_PIN)
   #error "CONTROLLERFAN_PIN is now CONTROLLER_FAN_PIN, enabled with USE_CONTROLLER_FAN. Please update your Configuration_adv.h."
+#elif ENABLED(MAKERARM_SCARA) && ENABLED(FWRETRACT)
+  #error "MakerArm is incompatible with FWRETRACT because G10 sets the tool offset."
 #endif
 
 /**
