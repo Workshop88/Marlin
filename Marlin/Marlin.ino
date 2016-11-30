@@ -70,3 +70,8 @@
   #include <SPI.h>
   #include <L6470.h>
 #endif
+
+#if ENABLED(WIFI_WINC1500)
+  #include <SPI.h>
+  #include <WiFi101.h>
+#endif
