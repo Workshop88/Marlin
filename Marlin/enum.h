@@ -34,18 +34,21 @@
  *    between X_AXIS and X Head movement, like CoreXY bots
  */
 enum AxisEnum {
+  A_AXIS    ,                 // X Cartesian
+  X_AXIS    = A_AXIS,         // DELTA tower 1, SCARA Theta
+  B_AXIS    ,                 // Y Cartesian
+  Y_AXIS    = B_AXIS,         // DELTA tower 2, SCARA Theta+Psi
+  C_AXIS    ,                 // Z Cartesian/SCARA
+  Z_AXIS    = C_AXIS,         // DELTA tower 3
+  #if ENABLED(CLAWCAM_TOOL)
+    T_AXIS  ,                 // Misc. extra axis
+  #endif
+  E_AXIS    ,                 // Active extruder
+  S_AXIS    = E_AXIS,         // Spindle, also called "C"
+  X_HEAD    ,
+  Y_HEAD    ,
+  Z_HEAD    ,
   NO_AXIS   = -1,
-  X_AXIS    = 0,
-  A_AXIS    = 0,
-  Y_AXIS    = 1,
-  B_AXIS    = 1,
-  Z_AXIS    = 2,
-  C_AXIS    = 2,
-  E_AXIS    = 3,
-  S_AXIS    = 3,
-  X_HEAD    = 4,
-  Y_HEAD    = 5,
-  Z_HEAD    = 6,
   ALL_AXES  = 100
 };
 
