@@ -2385,6 +2385,40 @@ static void clean_up_after_endstop_or_probe_move() {
   #if ENABLED(MAKERARM_SCARA)
 
     /**
+     * Get the arm-end position based on the tool position
+     * If the position is unreachable return vector_3 0,0,0
+     */
+    vector_3 tool_point_to_end_point(const float &x, const float &y) {
+
+      // Simply can't reach the given point
+      if (HYPOT2(x, y) > sq(L1 + L2 + tool_offset_length))
+        return vector_3();
+
+      float pos[XYZ] = { x, y, 0 };
+
+      // Get the angles for placing the tool at x, y
+      inverse_kinematics(pos);
+
+      float curr_tool_offset_length = tool_offset_length,
+            curr_tool_offset_angle = tool_offset_angle;
+
+      // Temporarily clear the tool offsets
+      tool_offset_length = tool_offset_angle = 0.0;
+
+      // Get the arm-end XY based on the given angles
+      forward_kinematics_SCARA(delta[A_AXIS], delta[B_AXIS]);
+
+      // Restore tool offsets
+      tool_offset_length = curr_tool_offset_length;
+      tool_offset_angle = curr_tool_offset_angle;
+
+      float tx = LOGICAL_X_POSITION(cartes[X_AXIS]),
+            ty = LOGICAL_Y_POSITION(cartes[Y_AXIS]);
+
+      return vector_3(tx, ty, 0);
+    }
+
+    /**
      * Get the arm-end position based on the probe position
      * If the position is unreachable return vector_3 0,0,0
      */
@@ -3389,6 +3423,20 @@ bool position_is_reachable(const float target[XYZ]
         // Try the opposite arm orientation
         arm_orientation = !arm_orientation;
         point = probe_point_to_end_point(dx, dy);
+        // If still unreachable keep the old arm orientation
+        if (!WITHINXY(point.x, point.y)) arm_orientation = !arm_orientation;
+      }
+      dx = point.x;
+      dy = point.y;
+    }
+    else if (tool_offset_length) {
+      // If the returned point is 0,0,0 the radius test will fail
+      vector_3 point = tool_point_to_end_point(dx, dy);
+      // Is the tool point outside the rectangular bounds?
+      if (!WITHINXY(point.x, point.y)) {
+        // Try the opposite arm orientation
+        arm_orientation = !arm_orientation;
+        point = tool_point_to_end_point(dx, dy);
         // If still unreachable keep the old arm orientation
         if (!WITHINXY(point.x, point.y)) arm_orientation = !arm_orientation;
       }
