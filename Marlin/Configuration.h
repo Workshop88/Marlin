@@ -1711,4 +1711,7 @@
 
 #endif
 
+// Set to the number of probes to do for every probe operation
+#define MULTIPLE_PROBING 5
+
 #endif // CONFIGURATION_H

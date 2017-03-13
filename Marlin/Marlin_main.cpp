@@ -2304,6 +2304,10 @@ static void clean_up_after_endstop_or_probe_move() {
     #endif
   }
 
+  #if defined(MULTIPLE_PROBING) && MULTIPLE_PROBING > 1
+    #undef PROBE_DOUBLE_TOUCH
+  #endif
+
   // Do a single Z probe and return with current_position[Z_AXIS]
   // at the height where the probe triggered.
   static float run_z_probe() {
@@ -2343,17 +2347,29 @@ static void clean_up_after_endstop_or_probe_move() {
 
     #endif
 
+    #if defined(MULTIPLE_PROBING) && MULTIPLE_PROBING > 1
+      float probes_total = 0;
+      for (uint8_t p = MULTIPLE_PROBING + 1; --p;) {
+    #endif
+
     // move down slowly to find bed
     do_probe_move(-(Z_MAX_LENGTH) - 10, Z_PROBE_SPEED_SLOW);
+
+    #if defined(MULTIPLE_PROBING) && MULTIPLE_PROBING > 1
+        probes_total += current_position[Z_AXIS] + zprobe_zoffset;
+        if (p > 1) do_blocking_move_to_z(current_position[Z_AXIS] + home_bump_mm(Z_AXIS), MMM_TO_MMS(Z_PROBE_SPEED_FAST));
+      }
+    #endif
 
     #if ENABLED(DEBUG_LEVELING_FEATURE)
       if (DEBUGGING(LEVELING)) DEBUG_POS("<<< run_z_probe", current_position);
     #endif
 
-    const float z2 = RAW_CURRENT_POSITION(Z) + zprobe_zoffset;
-
     // [MakerArm] Return average of probe heights
-    #if ENABLED(PROBE_DOUBLE_TOUCH)
+    #if defined(MULTIPLE_PROBING) && MULTIPLE_PROBING > 1
+      return probes_total * (1.0 / (MULTIPLE_PROBING));
+    #elif ENABLED(PROBE_DOUBLE_TOUCH)
+      const float z2 = RAW_CURRENT_POSITION(Z) + zprobe_zoffset;
       #if ENABLED(DEBUG_LEVELING_FEATURE)
         if (DEBUGGING(LEVELING)) {
           SERIAL_ECHOPAIR("2nd Probe Z:", z2);
@@ -2361,8 +2377,9 @@ static void clean_up_after_endstop_or_probe_move() {
         }
       #endif
       return (z2 + first_probe_z) * 0.5;
+    #else
+      return RAW_CURRENT_POSITION(Z) + zprobe_zoffset;
     #endif
-    return z2;
   }
 
   #if ENABLED(MAKERARM_SCARA)
