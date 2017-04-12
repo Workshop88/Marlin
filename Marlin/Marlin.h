@@ -211,6 +211,11 @@ inline void refresh_cmd_timeout() { previous_cmd_ms = millis(); }
  * Feedrate scaling and conversion
  */
 extern int16_t feedrate_percentage;
+extern float feedrate_mm_s;
+
+#if ENABLED(PATH_CONTROL_MODES)
+  extern float inverse_time_feedrate; // time to complete given distance
+#endif
 
 #define MMM_TO_MMS(MM_M) ((MM_M)/60.0)
 #define MMS_TO_MMM(MM_S) ((MM_S)*60.0)
