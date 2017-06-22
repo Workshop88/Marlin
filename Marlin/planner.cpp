@@ -687,7 +687,11 @@ void Planner::check_axes_activity() {
  *  fr_mm_s     - (target) speed of the move
  *  extruder    - target extruder
  */
-void Planner::_buffer_line(const float &a, const float &b, const float &c, const float &e, float fr_mm_s, const uint8_t extruder) {
+void Planner::_buffer_line(const float &a, const float &b, const float &c, const float &e, float fr_mm_s, const uint8_t extruder
+  #if ENABLED(SCARA_FEEDRATE_SCALING)
+    const float &distance_mm
+  #endif
+  ) {
 
   // The target position of the tool in absolute steps
   // Calculate target position in absolute steps
@@ -857,6 +861,10 @@ void Planner::_buffer_line(const float &a, const float &b, const float &c, const
     block->steps[X_AXIS] = labs(da);
     block->steps[B_AXIS] = labs(db + dc);
     block->steps[C_AXIS] = labs(db - dc);
+  #elif IS_SCARA
+    block->steps[A_AXIS] = labs(da);
+    block->steps[B_AXIS] = labs(db);
+    block->steps[Z_AXIS] = labs(dc);
   #else
     // default non-h-bot planning
     block->steps[X_AXIS] = labs(da);
@@ -1069,7 +1077,7 @@ void Planner::_buffer_line(const float &a, const float &b, const float &c, const
       #endif
     );
   }
-  float inverse_millimeters = 1.0 / block->millimeters;  // Inverse millimeters to remove multiple divides
+  const float inverse_millimeters = 1.0 / block->millimeters;  // Inverse millimeters to remove multiple divides
 
   // Calculate moves/second for this move. No divide by zero due to previous checks.
   float inverse_mm_s = fr_mm_s * inverse_millimeters;
@@ -1136,14 +1144,32 @@ void Planner::_buffer_line(const float &a, const float &b, const float &c, const
     }
   #endif
 
+  //
   // Calculate and limit speed in mm/sec for each axis
+  //
+  // For SCARA:
+  //  - The AB limits are based on degrees per second.
+  //  - delta_mm[A,B] refer to degrees, not mm.
+  //  - The feedrate is passed in as degrees/second (a factor could be passed instead).
+  //
+  // This limits the speed based on max_feedrate_mm_s. For SCARA AB this is deg/s.
+  // 
+  //
   float current_speed[NUM_AXIS], speed_factor = 1.0; // factor <1 decreases speed
   LOOP_XYZE(i) {
-    const float cs = FABS(current_speed[i] = delta_mm[i] * inverse_mm_s);
-    #if ENABLED(DISTINCT_E_FACTORS)
-      if (i == E_AXIS) i += extruder;
-    #endif
-    if (cs > max_feedrate_mm_s[i]) NOMORE(speed_factor, max_feedrate_mm_s[i] / cs);
+    current_speed[i] = delta_mm[i] * inverse_mm_s;
+    const float cs = FABS(current_speed[i]),
+                mf = max_feedrate_mm_s[i
+                                        #if ENABLED(DISTINCT_E_FACTORS)
+                                          + (i == E_AXIS ? extruder : 0)
+                                        #endif
+                                      ];
+    if (
+      #if IS_SCARA
+        i >= Z_AXIS &&
+      #endif
+        cs > mf
+    ) NOMORE(speed_factor, mf / cs);
   }
 
   // Max segment time in µs.

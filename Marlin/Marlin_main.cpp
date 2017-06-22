@@ -12711,7 +12711,8 @@ void set_current_from_steppers_for_axis(const AxisEnum axis) {
 
     #if IS_SCARA && ENABLED(SCARA_FEEDRATE_SCALING)
       // SCARA needs to scale the feed rate from mm/s to degrees/s
-      const float inv_segment_length = min(10.0, float(segments) / cartesian_mm), // 1/mm/segs
+      const float segment_length = cartesian_mm / float(segments),
+                  inv_segment_length = 1.0 / segment_length, // 1/mm/segs
                   feed_factor = inv_segment_length * _feedrate_mm_s;
       float oldA = stepper.get_axis_position_degrees(A_AXIS),
             oldB = stepper.get_axis_position_degrees(B_AXIS);
@@ -12741,7 +12742,7 @@ void set_current_from_steppers_for_axis(const AxisEnum axis) {
         // Use ratio between the length of the move and the larger angle change
         const float adiff = abs(delta[A_AXIS] - oldA),
                     bdiff = abs(delta[B_AXIS] - oldB);
-        planner.buffer_line(delta[A_AXIS], delta[B_AXIS], delta[C_AXIS], logical[E_AXIS], max(adiff, bdiff) * feed_factor, active_extruder);
+        planner._buffer_line(delta[A_AXIS], delta[B_AXIS], logical[Z_AXIS], logical[E_AXIS], max(adiff, bdiff) * feed_factor, active_extruder, segment_length);
         oldA = delta[A_AXIS];
         oldB = delta[B_AXIS];
       #else
@@ -12759,7 +12760,7 @@ void set_current_from_steppers_for_axis(const AxisEnum axis) {
       ADJUST_DELTA(ltarget);
       const float adiff = abs(delta[A_AXIS] - oldA),
                   bdiff = abs(delta[B_AXIS] - oldB);
-      planner.buffer_line(delta[A_AXIS], delta[B_AXIS], delta[C_AXIS], logical[E_AXIS], max(adiff, bdiff) * feed_factor, active_extruder);
+      planner._buffer_line(delta[A_AXIS], delta[B_AXIS], ltarget[Z_AXIS], logical[E_AXIS], max(adiff, bdiff) * feed_factor, active_extruder, segment_length);
     #else
       planner.buffer_line_kinematic(ltarget, _feedrate_mm_s, active_extruder);
     #endif
@@ -13038,6 +13039,13 @@ void prepare_move_to_destination() {
 
     millis_t next_idle_ms = millis() + 200UL;
 
+    #if IS_SCARA && ENABLED(SCARA_FEEDRATE_SCALING)
+      const float inv_segment_length = 1.0 / (MM_PER_ARC_SEGMENT), // 1/mm/segs
+                  feed_factor = inv_segment_length * fr_mm_s;
+      float oldA = stepper.get_axis_position_degrees(A_AXIS),
+            oldB = stepper.get_axis_position_degrees(B_AXIS);
+    #endif
+
     #if N_ARC_CORRECTION > 1
       int8_t count = N_ARC_CORRECTION;
     #endif
@@ -13078,11 +13086,28 @@ void prepare_move_to_destination() {
 
       clamp_to_software_endstops(arc_target);
 
-      planner.buffer_line_kinematic(arc_target, fr_mm_s, active_extruder);
+      // For SCARA we need to adjust feed-rate dynamically,
+      // so kinematics are done beforehand.
+      #if IS_SCARA && ENABLED(SCARA_FEEDRATE_SCALING)
+        inverse_kinematics(arc_target);
+        ADJUST_DELTA(arc_target);
+        const float adiff = abs(delta[A_AXIS] - oldA), bdiff = abs(delta[B_AXIS] - oldB);
+        planner._buffer_line(delta[A_AXIS], delta[B_AXIS], arc_target[Z_AXIS], arc_target[E_AXIS], max(adiff, bdiff) * feed_factor, active_extruder, MM_PER_ARC_SEGMENT);
+        oldA = delta[A_AXIS]; oldB = delta[B_AXIS];
+      #else
+        planner.buffer_line_kinematic(arc_target, fr_mm_s, active_extruder);
+      #endif
     }
 
     // Ensure last segment arrives at target location.
-    planner.buffer_line_kinematic(logical, fr_mm_s, active_extruder);
+    #if IS_SCARA && ENABLED(SCARA_FEEDRATE_SCALING)
+      inverse_kinematics(arc_target);
+      ADJUST_DELTA(arc_target);
+      const float adiff = abs(delta[A_AXIS] - oldA), bdiff = abs(delta[B_AXIS] - oldB);
+      planner._buffer_line(delta[A_AXIS], delta[B_AXIS], arc_target[Z_AXIS], logical[E_AXIS], max(adiff, bdiff) * feed_factor, active_extruder, MM_PER_ARC_SEGMENT);
+    #else
+      planner.buffer_line_kinematic(logical, fr_mm_s, active_extruder);
+    #endif
 
     // As far as the parser is concerned, the position is now == target. In reality the
     // motion control system might still be processing the action and the real tool position

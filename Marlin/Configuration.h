@@ -77,6 +77,7 @@
 #if ENABLED(MORGAN_SCARA) || ENABLED(MAKERARM_SCARA)
 
   #define DEBUG_SCARA_KINEMATICS
+  //#define SCARA_FEEDRATE_SCALING      // Treat XY feedrate as mm/s and scale to degrees/s
 
   #define SCARA_SEGMENTS_PER_SECOND 100 // If movement is choppy try lowering this value
 
