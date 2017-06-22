@@ -1589,4 +1589,7 @@
   //#define FILAMENT_LCD_DISPLAY
 #endif
 
+// Allow G2/G3 to operate in XY, ZX, or YZ planes
+#define CNC_WORKSPACE_PLANES
+
 #endif // CONFIGURATION_H
