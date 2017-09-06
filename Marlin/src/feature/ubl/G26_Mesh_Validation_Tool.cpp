@@ -24,17 +24,18 @@
  * Marlin Firmware -- G26 - Mesh Validation Tool
  */
 
-#include "MarlinConfig.h"
+#include "../../inc/MarlinConfig.h"
 
 #if ENABLED(AUTO_BED_LEVELING_UBL) && ENABLED(UBL_G26_MESH_VALIDATION)
 
   #include "ubl.h"
-  #include "Marlin.h"
-  #include "planner.h"
-  #include "stepper.h"
-  #include "temperature.h"
-  #include "ultralcd.h"
-  #include "gcode.h"
+
+  #include "../../Marlin.h"
+  #include "../../module/planner.h"
+  #include "../../module/stepper.h"
+  #include "../../module/temperature.h"
+  #include "../../lcd/ultralcd.h"
+  #include "../../gcode/parser.h"
 
   #define EXTRUSION_MULTIPLIER 1.0
   #define RETRACTION_MULTIPLIER 1.0

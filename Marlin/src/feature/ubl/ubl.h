@@ -23,14 +23,13 @@
 #ifndef UNIFIED_BED_LEVELING_H
 #define UNIFIED_BED_LEVELING_H
 
-#include "MarlinConfig.h"
+#include "../../inc/MarlinConfig.h"
 
 #if ENABLED(AUTO_BED_LEVELING_UBL)
-  #include "Marlin.h"
-  #include "planner.h"
-  #include "math.h"
-  #include "vector_3.h"
-  #include "configuration_store.h"
+
+  #include "../../Marlin.h"
+  #include "../../core/serial.h"
+  #include "../../module/planner.h"
 
   #define UBL_VERSION "1.01"
   #define UBL_OK false
@@ -46,9 +45,9 @@
 
   // ubl.cpp
 
-  void bit_clear(uint16_t bits[16], uint8_t x, uint8_t y);
-  void bit_set(uint16_t bits[16], uint8_t x, uint8_t y);
-  bool is_bit_set(uint16_t bits[16], uint8_t x, uint8_t y);
+  void bit_clear(uint16_t bits[16], const uint8_t x, const uint8_t y);
+  void bit_set(uint16_t bits[16], const uint8_t x, const uint8_t y);
+  bool is_bit_set(uint16_t bits[16], const uint8_t x, const uint8_t y);
 
   // ubl_motion.cpp
 
@@ -398,12 +397,6 @@
   }; // class unified_bed_leveling
 
   extern unified_bed_leveling ubl;
-
-  #if ENABLED(UBL_G26_MESH_VALIDATION)
-    FORCE_INLINE void gcode_G26() { ubl.G26(); }
-  #endif
-
-  FORCE_INLINE void gcode_G29() { ubl.G29(); }
 
 #endif // AUTO_BED_LEVELING_UBL
 #endif // UNIFIED_BED_LEVELING_H
