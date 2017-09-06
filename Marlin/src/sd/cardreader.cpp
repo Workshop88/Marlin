@@ -20,16 +20,18 @@
  *
  */
 
-#include <ctype.h>
-#include "cardreader.h"
-
-#include "ultralcd.h"
-#include "stepper.h"
-#include "language.h"
-
-#include "Marlin.h"
+#include "../inc/MarlinConfig.h"
 
 #if ENABLED(SDSUPPORT)
+
+#include "cardreader.h"
+
+#include "../Marlin.h"
+#include "../lcd/ultralcd.h"
+#include "../module/stepper.h"
+#include "../core/language.h"
+
+#include <ctype.h>
 
 #define LONGEST_FILENAME (longFilename[0] ? longFilename : filename)
 
