@@ -179,9 +179,6 @@ void quickstop_stepper();
   void handle_filament_runout();
 #endif
 
-extern uint8_t marlin_debug_flags;
-#define DEBUGGING(F) (marlin_debug_flags & (DEBUG_## F))
-
 extern bool Running;
 inline bool IsRunning() { return  Running; }
 inline bool IsStopped() { return !Running; }
@@ -189,9 +186,6 @@ inline bool IsStopped() { return !Running; }
 bool enqueue_and_echo_command(const char* cmd, bool say_ok=false); // Add a single command to the end of the buffer. Return false on failure.
 void enqueue_and_echo_commands_P(const char * const cmd);          // Set one or more commands to be prioritized over the next Serial/SD command.
 void clear_command_queue();
-
-extern millis_t previous_cmd_ms;
-inline void refresh_cmd_timeout() { previous_cmd_ms = millis(); }
 
 /**
  * Feedrate scaling and conversion

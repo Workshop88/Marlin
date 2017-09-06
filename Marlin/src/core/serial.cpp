@@ -22,6 +22,8 @@
 
 #include "serial.h"
 
+uint8_t marlin_debug_flags = DEBUG_NONE;
+
 const char errormagic[] PROGMEM = "Error:";
 const char echomagic[] PROGMEM = "echo:";
 
