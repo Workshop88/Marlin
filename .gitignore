@@ -122,6 +122,11 @@ tags
 .piolibdeps
 .clang_complete
 .gcc-flags.json
+Marlin/platformio.ini
+Marlin/.travis.yml
+Marlin/readme.*
+Marlin/.gitignore
+Marlin/lib
 /lib/
 
 #Visual Studio
