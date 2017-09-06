@@ -20,10 +20,17 @@
  *
  */
 
+#include "../gcode.h"
+#include "../../Marlin.h"
+
+extern void gcode_get_destination();
+extern void prepare_move_to_destination();
+extern float destination[XYZE];
+
 /**
  * G0, G1: Coordinated movement of X Y Z E axes
  */
-void gcode_G0_G1(
+void GcodeSuite::G0_G1(
   #if IS_SCARA
     bool fast_move=false
   #endif

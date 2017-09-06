@@ -20,6 +20,8 @@
  *
  */
 
+#include "../gcode.h"
+
 /**
  * M109: Sxxx Wait for extruder(s) to reach temperature. Waits only when heating.
  *       Rxxx Wait for extruder(s) to reach temperature. Waits when heating and cooling.
@@ -121,7 +123,7 @@ void gcode_M109() {
     }
 
     idle();
-    refresh_cmd_timeout(); // to prevent stepper_inactive_time from running out
+    gcode.refresh_cmd_timeout(); // to prevent stepper_inactive_time from running out
 
     const float temp = thermalManager.degHotend(target_extruder);
 

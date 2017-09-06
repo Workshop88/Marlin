@@ -20,6 +20,8 @@
  *
  */
 
+#include "gcode.h"
+
 /**
  * Process a single command and dispatch it to its handler
  * This is called from the main loop()
@@ -49,9 +51,9 @@ void process_next_command() {
       case 0:
       case 1:
         #if IS_SCARA
-          gcode_G0_G1(parser.codenum == 0);
+          gcode.G0_G1(parser.codenum == 0);
         #else
-          gcode_G0_G1();
+          gcode.G0_G1();
         #endif
         break;
 

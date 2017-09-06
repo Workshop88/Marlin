@@ -242,7 +242,13 @@
 
 #include "../inc/MarlinConfig.h"
 
-class gcodeHandlers {
+class GcodeSuite {
+public:
+
+  GcodeSuite() {}
+
+  static millis_t previous_cmd_ms;
+  FORCE_INLINE static void refresh_cmd_timeout() { previous_cmd_ms = millis(); }
 
   static void G0_G1(
     #if IS_SCARA
@@ -658,5 +664,7 @@ class gcodeHandlers {
   static void T(uint8_t tmp_extruder);
 
 };
+
+extern GcodeSuite gcode;
 
 #endif // GCODE_H

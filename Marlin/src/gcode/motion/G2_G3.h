@@ -20,6 +20,8 @@
  *
  */
 
+#include "../gcode.h"
+
 #if N_ARC_CORRECTION < 1
   #undef N_ARC_CORRECTION
   #define N_ARC_CORRECTION 1
@@ -252,7 +254,7 @@ void gcode_G2_G3(bool clockwise) {
 
       // Send the arc to the planner
       plan_arc(destination, arc_offset, clockwise);
-      refresh_cmd_timeout();
+      gcode.refresh_cmd_timeout();
     }
     else {
       // Bad arguments
