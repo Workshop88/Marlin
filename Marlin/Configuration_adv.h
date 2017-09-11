@@ -282,7 +282,7 @@
   // Set true if the two X motors need to rotate in opposite directions
   #define INVERT_X2_VS_X_DIR true //mpcnc
 
-  //#define X_DUAL_ENDSTOPS
+  #define X_DUAL_ENDSTOPS //mpcnc
 
   #if ENABLED(X_DUAL_ENDSTOPS)
     #define X2_USE_ENDSTOP _XMAX_
