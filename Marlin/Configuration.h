@@ -768,7 +768,7 @@
  */
 #define X_PROBE_OFFSET_FROM_EXTRUDER 0   // DSW 20180417 servo probe has no offset // X offset: -left  +right  [of the nozzle]
 #define Y_PROBE_OFFSET_FROM_EXTRUDER 0   // DSW 20180417 servo probe has no offset // Y offset: -front +behind [the nozzle]
-#define Z_PROBE_OFFSET_FROM_EXTRUDER (-9.1) // test DSW 20180417 new servo probe // Z offset: -below +above  [the nozzle]
+#define Z_PROBE_OFFSET_FROM_EXTRUDER (-9.2) // test DSW 20180417 new servo probe // Z offset: -below +above  [the nozzle]
 // DSW 20180503 Note: Increasing Z_PROBE_OFFSET_FROM_EXTRUDER will print higher off the bed
 
 // X and Y axis travel speed (mm/m) between probes
