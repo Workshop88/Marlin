@@ -524,16 +524,16 @@
   //.Tower angle :    Tx:+0.04  Ty:-0.32  Tz:+0.28
   
     // height from z=0 to home position
-  #define DELTA_HEIGHT 297.61  // DSW: 20190411 new arms post calibration // get this value from auto calibrate
-  #define DELTA_ENDSTOP_ADJ { 0.34, 0.00, -.31 } //DSW 20180411 Ex Ey Ex after calibraion // get these from auto calibrate
+  #define DELTA_HEIGHT 294.75  // DSW: 20190411 new arms post calibration // get this value from auto calibrate
+  #define DELTA_ENDSTOP_ADJ { -2.56, -2.71, -.0 } //DSW 20180411 Ex Ey Ex after calibraion // get these from auto calibrate
 
   // Horizontal distance bridged by diagonal push rods when effector is centered.
-  #define DELTA_RADIUS 158.53 //CMH -Orig-20171109-Caluclated value-
+  #define DELTA_RADIUS 157.19 //CMH -Orig-20171109-Caluclated value-
 
   // Trim adjustments for individual towers
   // tower angle corrections for X and Y tower / rotate XYZ so Z tower angle = 0
   // measured in degrees anticlockwise looking from above the printer
-  #define DELTA_TOWER_ANGLE_TRIM { 0.04, -0.32, 0.28 } //DSW 20180411 Tx Ty Tx after calibraion // get these values from auto calibrate 
+  #define DELTA_TOWER_ANGLE_TRIM { 0.21, -0.31, 0.10 } //DSW 20180411 Tx Ty Tx after calibraion // get these values from auto calibrate 
 
   // delta radius and diaginal rod adjustments measured in mm
   //#define DELTA_RADIUS_TRIM_TOWER { 0.0, 0.0, 0.0 }
