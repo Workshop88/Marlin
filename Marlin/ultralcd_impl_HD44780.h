@@ -229,43 +229,112 @@ static void lcd_set_custom_characters(
 ) {
   // CHARSET_BOOT
   #if ENABLED(SHOW_BOOTSCREEN)
-    const static PROGMEM byte corner[4][8] = { {
-      B00000,
-      B00000,
-      B00000,
-      B00000,
-      B00001,
-      B00010,
-      B00100,
-      B00100
-    }, {
-      B00000,
-      B00000,
-      B00000,
-      B11100,
-      B11100,
-      B01100,
-      B00100,
-      B00100
-    }, {
-      B00100,
-      B00010,
-      B00001,
-      B00000,
-      B00000,
-      B00000,
-      B00000,
-      B00000
-    }, {
-      B00100,
-      B01000,
-      B10000,
-      B00000,
-      B00000,
-      B00000,
-      B00000,
-      B00000
-    } };
+    // DSW 20180605 Added Workshop 88 boot screen
+    #if ENABLED(SHOW_BOOTSCREEN_WORKSHOP88)
+      // Special characters (7 of possible 8)
+      const static PROGMEM byte w88logo[7][8] = { {
+        B00000,
+        B00011,
+        B01111,
+        B11111,
+        B11111,
+        B00011,
+        B11100,
+        B11111
+      }, {
+        B11111,
+        B11111,
+        B11111,
+        B11111,
+        B11011,
+        B10101,
+        B01110,
+        B11111
+      }, {
+				B00000,
+				B11000,
+				B11110,
+				B11111,
+				B11111,
+				B11000,
+				B00111,
+				B11111
+			}, {
+				B11111,
+				B11111,
+				B11110,
+				B01111,
+				B01110,
+				B00111,
+				B00111,
+				B00011
+			}, {
+				B11111,
+				B01110,
+				B10101,
+				B01110,
+				B10101,
+				B01110,
+				B11111,
+				B11111
+			}, {
+				B11111,
+				B11111,
+				B01111,
+				B11110,
+				B01110,
+				B11100,
+				B11100,
+				B11000
+			}, {
+				B11111,
+				B00100,
+				B00000,
+				B00000,
+				B00000,
+				B00000,
+				B00000,
+				B00000
+			} };
+    #else
+      const static PROGMEM byte corner[4][8] = { {
+        B00000,
+        B00000,
+        B00000,
+        B00000,
+        B00001,
+        B00010,
+        B00100,
+        B00100
+      }, {
+        B00000,
+        B00000,
+        B00000,
+        B11100,
+        B11100,
+        B01100,
+        B00100,
+        B00100
+      }, {
+        B00100,
+        B00010,
+        B00001,
+        B00000,
+        B00000,
+        B00000,
+        B00000,
+        B00000
+      }, {
+        B00100,
+        B01000,
+        B10000,
+        B00000,
+        B00000,
+        B00000,
+        B00000,
+        B00000
+      } };
+      #endif
   #endif // SHOW_BOOTSCREEN
 
   // CHARSET_INFO
@@ -406,12 +475,23 @@ static void lcd_set_custom_characters(
     #if ENABLED(SHOW_BOOTSCREEN) || ENABLED(LCD_PROGRESS_BAR)
       char_mode = screen_charset;
       #if ENABLED(SHOW_BOOTSCREEN)
-        // Set boot screen corner characters
-        if (screen_charset == CHARSET_BOOT) {
-          for (uint8_t i = 4; i--;)
-            createChar_P(i, corner[i]);
-        }
-        else
+        // DSW 20180605 Added Workshop 88 boot screen
+        #if ENABLED(SHOW_BOOTSCREEN_WORKSHOP88)
+          // Set boot screen Workshop88 logo characters
+          if (screen_charset == CHARSET_BOOT) {
+            // Load 7 of 8 special characters into CGRAM
+            for (uint8_t i = 7; i--;)
+              createChar_P(i, w88logo[i]);
+          }
+          else
+        #else
+          // Set boot screen corner characters
+          if (screen_charset == CHARSET_BOOT) {
+            for (uint8_t i = 4; i--;)
+              createChar_P(i, corner[i]);
+          }
+          else
+        #endif
       #endif
     #endif
         { // Info Screen uses 5 special characters
@@ -519,10 +599,19 @@ void lcd_printPGM_utf(const char *str, uint8_t n=LCD_WIDTH) {
   }
 
   static void logo_lines(const char* const extra) {
-    int16_t indent = (LCD_WIDTH - 8 - lcd_strlen_P(extra)) / 2;
-    lcd.setCursor(indent, 0); lcd.print('\x00'); lcd_printPGM(PSTR( "------" ));  lcd.write('\x01');
-    lcd.setCursor(indent, 1);                    lcd_printPGM(PSTR("|Marlin|"));  lcd_printPGM(extra);
-    lcd.setCursor(indent, 2); lcd.write('\x02'); lcd_printPGM(PSTR( "------" ));  lcd.write('\x03');
+    // DSW 20180605 Added Workshop 88 boot screen
+    #if ENABLED(SHOW_BOOTSCREEN_WORKSHOP88)
+      // Load the text lines into the screen
+      int16_t indent = 0; // (LCD_WIDTH - 11 - lcd_strlen_P(extra)) / 2;
+      lcd.setCursor(indent, 0); lcd.print('\x00');lcd.print('\x01');lcd.print('\x02');lcd_printPGM(PSTR(" Kossel mini"));
+      lcd.setCursor(indent, 1); lcd.print('\x03');lcd.print('\x04');lcd.print('\x05');lcd_printPGM(PSTR(" Marlin "));  lcd_printPGM(extra);
+      lcd.setCursor(indent+1, 2); lcd.print('\x06');
+    #else
+      int16_t indent = (LCD_WIDTH - 8 - lcd_strlen_P(extra)) / 2;
+      lcd.setCursor(indent, 0); lcd.print('\x00'); lcd_printPGM(PSTR( "------" ));  lcd.write('\x01');
+      lcd.setCursor(indent, 1);                    lcd_printPGM(PSTR("|Marlin|"));  lcd_printPGM(extra);
+      lcd.setCursor(indent, 2); lcd.write('\x02'); lcd_printPGM(PSTR( "------" ));  lcd.write('\x03');
+    #endif
   }
 
   void lcd_bootscreen() {
