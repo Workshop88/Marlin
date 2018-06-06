@@ -602,7 +602,7 @@ void lcd_printPGM_utf(const char *str, uint8_t n=LCD_WIDTH) {
     // DSW 20180605 Added Workshop 88 boot screen
     #if ENABLED(SHOW_BOOTSCREEN_WORKSHOP88)
       // Load the text lines into the screen
-      int16_t indent = 0; // (LCD_WIDTH - 11 - lcd_strlen_P(extra)) / 2;
+      int16_t indent = 1; // (LCD_WIDTH - 11 - lcd_strlen_P(extra)) / 2;
       lcd.setCursor(indent, 0); lcd.print('\x00');lcd.print('\x01');lcd.print('\x02');lcd_printPGM(PSTR(" Kossel mini"));
       lcd.setCursor(indent, 1); lcd.print('\x03');lcd.print('\x04');lcd.print('\x05');lcd_printPGM(PSTR(" Marlin "));  lcd_printPGM(extra);
       lcd.setCursor(indent+1, 2); lcd.print('\x06');
